@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Bottle Basket Dashboard</title>
+
+    <script type="module">
+        // Import modules and define the main logic in dashboard.js
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // ------------------- Configuration -------------------
+        // Your web app's Firebase configuration (using the keys you provided)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAPXnGWfxv1foMCiFTLJwdnK-o22vwihTA",
+            authDomain: "automatedbottlebasket.firebaseapp.com",
+            databaseURL: "https://automatedbottlebasket-default-rtdb.firebaseio.com",
+            projectId: "automatedbottlebasket",
+            appId: "1:714021418726:web:140e9bc8824ee7fe6b2d27",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Get a reference to the database service path used by the ESP32
+        const dbRef = ref(database, 'bottle_basket');
+
+        // ------------------- Real-Time Data Listener -------------------
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+
+            if (data) {
+                // --- 1. Update Bottle Count
+                const count = data.count || 0;
+                document.getElementById('bottleCount').innerText = count;
+
+                // --- 2. Update Lid Status
+                const lidStatusElement = document.getElementById('lidStatus');
+                const status = data.lid_status || "UNKNOWN";
+                lidStatusElement.innerText = status;
+
+                // Set color/style based on status
+                lidStatusElement.className = 'kpi-value lid-status ' + status.toLowerCase();
+
+                // Update system message based on count (Assuming BIN FULL at 50)
+                const notificationElement = document.getElementById('notificationMessage');
+                const alertBox = document.getElementById('alertBox');
+                if (count >= 50) {
+                    notificationElement.innerText = "⚠️ CRITICAL: BIN FULL! Collection Required.";
+                    alertBox.className = 'alert-critical';
+                } else if (status === 'OPEN') {
+                    notificationElement.innerText = "Bottle detected. Lid is OPEN.";
+                    alertBox.className = 'alert-info';
+                } else {
+                    notificationElement.innerText = "System running normally. Awaiting bottle insertion.";
+                    alertBox.className = 'alert-success';
+                }
+
+                // --- 3. Update Last Update Timestamp
+                const timestampElement = document.getElementById('lastUpdate');
+                if (data.last_update) {
+                    // Firebase.setTimestamp provides server time in milliseconds
+                    const date = new Date(data.last_update);
+                    timestampElement.innerText = date.toLocaleString();
+                } else {
+                    timestampElement.innerText = "N/A";
+                }
+
+            } else {
+                console.error("No data found in Firebase path 'bottle_basket'. Check ESP32 upload.");
+                document.getElementById('notificationMessage').innerText = "ERROR: No data found. Check ESP32.";
+                document.getElementById('alertBox').className = 'alert-critical';
+            }
+        });
+    </script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .dashboard-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-grid {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .kpi-card {
+            flex: 1;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #ecf0f1;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .kpi-card h2 {
+            font-size: 1.1em;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-size: 3.5em;
+            font-weight: 700;
+        }
+
+        /* Status-Specific Colors */
+        .count-value {
+            color: #27ae60;
+            /* Green for count */
+        }
+
+        .lid-status.closed {
+            color: #3498db;
+            /* Blue for CLOSED */
+        }
+
+        .lid-status.open {
+            color: #e74c3c;
+            /* Red for OPEN */
+        }
+
+        /* Alert Box Styling */
+        .alert-box {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-info {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .alert-critical {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.8;
+            }
+        }
+
+        /* Footer/Update Info */
+        .update-info {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>🗑️ ESP32 Automated Bottle Basket Monitor</h1>
+        </header>
+
+        <div id="alertBox" class="alert-box alert-info">
+            <p id="notificationMessage">System initializing...</p>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <h2>Total Bottles Collected</h2>
+                <div id="bottleCount" class="kpi-value count-value">0</div>
+            </div>
+
+            <div class="kpi-card">
+                <h2>Lid Status</h2>
+                <div id="lidStatus" class="kpi-value lid-status closed">CLOSED</div>
+            </div>
+        </div>
+
+        <div class="update-info">
+            <p>Last Data Update (Local Time): <span id="lastUpdate">N/A</span></p>
+        </div>
+    </div>
+</body>
+
+</html>
